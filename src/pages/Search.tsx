@@ -1,11 +1,12 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Card, 
   CardContent, 
   CardDescription, 
   CardHeader, 
-  CardTitle 
+  CardTitle, 
+  CardFooter 
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +16,17 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import SearchResults from "@/components/search/SearchResults";
 import FieldsSelector from "@/components/search/FieldsSelector";
+import AIGeneratedCombinations from "@/components/search/AIGeneratedCombinations";
+import LocationSelector from "@/components/search/LocationSelector";
 import { useToast } from "@/hooks/use-toast";
+import { Check, CheckCheck, ChevronRight, Search as SearchIcon } from "lucide-react";
 
 const Search = () => {
   const { toast } = useToast();
@@ -26,14 +35,11 @@ const Search = () => {
   const [selectedMethod, setSelectedMethod] = useState<string>("api");
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [showResults, setShowResults] = useState<boolean>(false);
+  const [progress, setProgress] = useState<number>(0);
+  const [showAICombinations, setShowAICombinations] = useState<boolean>(false);
   
   // 示例建议的关键词
   const suggestedKeywords = ["软件开发", "数据分析", "市场营销", "电子商务", "咨询服务"];
-  
-  // 示例地区数据
-  const countries = ["中国", "美国", "加拿大", "澳大利亚", "英国", "德国", "法国", "日本"];
-  const provinces = ["北京", "上海", "广东", "江苏", "浙江", "四川", "湖北"];
-  const cities = ["北京", "上海", "广州", "深圳", "杭州", "成都", "武汉"];
   
   const handleAddKeyword = () => {
     if (keywords && !selectedKeywords.includes(keywords)) {
@@ -75,20 +81,40 @@ const Search = () => {
     }
     
     setIsSearching(true);
+    setProgress(0);
+    
     toast({
       title: "正在搜索",
       description: `使用 ${selectedMethod.toUpperCase()} 方法开始抓取客户信息`
     });
     
-    // 模拟搜索过程
-    setTimeout(() => {
-      setIsSearching(false);
-      setShowResults(true);
-      toast({
-        title: "搜索完成",
-        description: "已抓取到客户信息，请查看结果",
+    // 模拟搜索过程和进度
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsSearching(false);
+          setShowResults(true);
+          toast({
+            title: "搜索完成",
+            description: "已抓取到客户信息，请查看结果",
+          });
+          return 100;
+        }
+        return prev + 10;
       });
-    }, 2000);
+    }, 500);
+  };
+  
+  const toggleAICombinations = () => {
+    setShowAICombinations(!showAICombinations);
+    
+    if (!showAICombinations) {
+      toast({
+        title: "AI组合生成器已启用",
+        description: "您可以使用AI自动生成关键词与地区的所有组合"
+      });
+    }
   };
 
   return (
@@ -138,14 +164,25 @@ const Search = () => {
                     ))}
                   </div>
                   
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleGenerateKeywords}
-                    className="mt-1"
-                  >
-                    AI生成关键词
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleGenerateKeywords}
+                      className="mt-1"
+                    >
+                      AI生成关键词
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleAICombinations}
+                      className="mt-1"
+                    >
+                      {showAICombinations ? "隐藏AI组合生成器" : "显示AI组合生成器"}
+                    </Button>
+                  </div>
                   
                   <div className="mt-3">
                     <Label className="text-sm text-muted-foreground">推荐关键词</Label>
@@ -168,51 +205,15 @@ const Search = () => {
                   </div>
                 </div>
                 
+                {showAICombinations && (
+                  <div className="mt-4">
+                    <AIGeneratedCombinations />
+                  </div>
+                )}
+                
                 <Separator />
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="country">国家</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="选择国家" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {countries.map((country) => (
-                          <SelectItem key={country} value={country}>{country}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="province">省份</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="选择省份" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {provinces.map((province) => (
-                          <SelectItem key={province} value={province}>{province}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="city">城市</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="选择城市" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {cities.map((city) => (
-                          <SelectItem key={city} value={city}>{city}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                <LocationSelector />
               </div>
             </CardContent>
           </Card>
@@ -319,6 +320,14 @@ const Search = () => {
                 </TabsContent>
               </Tabs>
               
+              {isSearching && (
+                <div className="mt-6">
+                  <Label className="text-sm">抓取进度</Label>
+                  <Progress value={progress} className="mt-2" />
+                  <p className="text-center text-sm text-muted-foreground mt-2">{progress}%</p>
+                </div>
+              )}
+              
               <Button 
                 className="w-full mt-6" 
                 onClick={handleSearch}
@@ -326,6 +335,16 @@ const Search = () => {
               >
                 {isSearching ? "搜索中..." : "开始搜索"}
               </Button>
+              
+              {showResults && (
+                <Button 
+                  variant="outline" 
+                  className="w-full mt-2"
+                  onClick={() => window.location.href = "/results"}
+                >
+                  查看搜索结果
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
