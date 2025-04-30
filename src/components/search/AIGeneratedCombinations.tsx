@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCheck, Plus, Trash } from "lucide-react";
+import { CheckCheck, Plus, Trash, Brain, Edit } from "lucide-react";
 
 interface Combination {
   id: number;
@@ -44,6 +44,9 @@ const AIGeneratedCombinations = () => {
   const [locations] = useState(["北京", "上海", "广州", "深圳"]);
   const [selectAll, setSelectAll] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showCommandEdit, setShowCommandEdit] = useState(false);
+  const [aiCommand, setAiCommand] = useState("根据提供的关键词和地区，生成最佳的搜索组合，包含查询语句");
+  const [selectedAiModel, setSelectedAiModel] = useState("gpt4");
   
   const handleGenerate = () => {
     setIsGenerating(true);
@@ -57,7 +60,7 @@ const AIGeneratedCombinations = () => {
     setCombinations([]);
     
     toast({
-      title: "AI正在生成组合",
+      title: `AI正在生成组合 (${selectedAiModel})`,
       description: "请稍等，基于您的关键词和地区生成查询组合"
     });
     
@@ -163,8 +166,20 @@ const AIGeneratedCombinations = () => {
       
       <CardContent>
         <div className="space-y-4">
-          <div>
-            <Label>模板选择</Label>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <Label>模板选择</Label>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setShowCommandEdit(!showCommandEdit)}
+                className="flex items-center gap-1"
+              >
+                <Edit className="h-3.5 w-3.5" />
+                {showCommandEdit ? "隐藏AI命令" : "编辑AI命令"}
+              </Button>
+            </div>
+            
             <Select 
               value={selectedTemplate}
               onValueChange={setSelectedTemplate}
@@ -180,6 +195,42 @@ const AIGeneratedCombinations = () => {
                 ))}
               </SelectContent>
             </Select>
+            
+            {showCommandEdit && (
+              <div className="p-3 border rounded-md bg-muted/20 mt-2 space-y-3">
+                <div>
+                  <Label htmlFor="ai-model" className="text-sm">AI模型</Label>
+                  <Select 
+                    value={selectedAiModel}
+                    onValueChange={setSelectedAiModel}
+                  >
+                    <SelectTrigger id="ai-model">
+                      <SelectValue placeholder="选择AI模型" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gpt4">GPT-4</SelectItem>
+                      <SelectItem value="gpt4o">GPT-4o</SelectItem>
+                      <SelectItem value="claude">Claude</SelectItem>
+                      <SelectItem value="gemini">Google Gemini</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="ai-generate-command" className="text-sm">生成命令</Label>
+                  <Textarea
+                    id="ai-generate-command"
+                    value={aiCommand}
+                    onChange={(e) => setAiCommand(e.target.value)}
+                    className="font-mono text-sm"
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    命令将用于指导AI如何生成关键词与地区的组合
+                  </p>
+                </div>
+              </div>
+            )}
             
             {selectedTemplate === "custom" && (
               <div className="mt-2">
@@ -211,7 +262,9 @@ const AIGeneratedCombinations = () => {
             <Button 
               onClick={handleGenerate} 
               disabled={isGenerating}
+              className="flex items-center gap-1"
             >
+              <Brain className="h-4 w-4" />
               {isGenerating ? "生成中..." : "生成组合"}
             </Button>
           </div>

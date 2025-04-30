@@ -26,20 +26,39 @@ import FieldsSelector from "@/components/search/FieldsSelector";
 import AIGeneratedCombinations from "@/components/search/AIGeneratedCombinations";
 import LocationSelector from "@/components/search/LocationSelector";
 import { useToast } from "@/hooks/use-toast";
-import { Check, CheckCheck, ChevronRight, Search as SearchIcon } from "lucide-react";
+import { Check, CheckCheck, ChevronRight, Search as SearchIcon, Brain } from "lucide-react";
 
 const Search = () => {
   const { toast } = useToast();
   const [keywords, setKeywords] = useState<string>("");
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
-  const [selectedMethod, setSelectedMethod] = useState<string>("api");
+  const [selectedMethods, setSelectedMethods] = useState<string[]>(["api"]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [showResults, setShowResults] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
   const [showAICombinations, setShowAICombinations] = useState<boolean>(false);
+  const [dynamicSuggestions, setDynamicSuggestions] = useState<string[]>([]);
+  const [aiCommand, setAiCommand] = useState<string>("generate keywords related to {input} for business search");
+  const [showAiCommandEdit, setShowAiCommandEdit] = useState<boolean>(false);
   
-  // 示例建议的关键词
-  const suggestedKeywords = ["软件开发", "数据分析", "市场营销", "电子商务", "咨询服务"];
+  // 基础建议的关键词
+  const baseSuggestedKeywords = ["软件开发", "数据分析", "市场营销", "电子商务", "咨询服务", "人工智能", "云服务", "大数据", "区块链", "物联网"];
+  
+  // 监听输入变化生成动态建议
+  useEffect(() => {
+    if (keywords.length > 0) {
+      // 过滤出与当前输入匹配的关键词
+      const filtered = baseSuggestedKeywords.filter(
+        keyword => keyword.includes(keywords) && !selectedKeywords.includes(keyword)
+      );
+      // 从过滤结果中随机选择3-5个作为建议
+      const count = Math.min(Math.floor(Math.random() * 3) + 3, filtered.length);
+      const suggestions = filtered.slice(0, count);
+      setDynamicSuggestions(suggestions);
+    } else {
+      setDynamicSuggestions([]);
+    }
+  }, [keywords, selectedKeywords]);
   
   const handleAddKeyword = () => {
     if (keywords && !selectedKeywords.includes(keywords)) {
@@ -60,7 +79,7 @@ const Search = () => {
     
     // 模拟生成关键词
     setTimeout(() => {
-      const newKeywords = ["企业服务", "客户管理", "数据服务"];
+      const newKeywords = ["企业服务", "客户管理", "数据服务", "云计算解决方案", "SaaS平台"];
       setSelectedKeywords([...selectedKeywords, ...newKeywords]);
       
       toast({
@@ -80,12 +99,21 @@ const Search = () => {
       return;
     }
     
+    if (selectedMethods.length === 0) {
+      toast({
+        title: "无法开始搜索",
+        description: "请至少选择一种抓取方法",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsSearching(true);
     setProgress(0);
     
     toast({
       title: "正在搜索",
-      description: `使用 ${selectedMethod.toUpperCase()} 方法开始抓取客户信息`
+      description: `使用 ${selectedMethods.map(m => m.toUpperCase()).join(", ")} 方法开始抓取客户信息`
     });
     
     // 模拟搜索过程和进度
@@ -114,6 +142,24 @@ const Search = () => {
         title: "AI组合生成器已启用",
         description: "您可以使用AI自动生成关键词与地区的所有组合"
       });
+    }
+  };
+  
+  const toggleMethodSelection = (method: string) => {
+    if (selectedMethods.includes(method)) {
+      if (selectedMethods.length > 1) {
+        setSelectedMethods(selectedMethods.filter(m => m !== method));
+      }
+    } else {
+      setSelectedMethods([...selectedMethods, method]);
+    }
+  };
+  
+  const handleSelectAllMethods = () => {
+    if (selectedMethods.length === 3) {
+      setSelectedMethods(["api"]); // 至少保留一个方法
+    } else {
+      setSelectedMethods(["api", "ai", "mcp"]);
     }
   };
 
@@ -164,13 +210,39 @@ const Search = () => {
                     ))}
                   </div>
                   
-                  <div className="flex gap-2">
+                  {/* 动态推荐关键词 - 只在输入时显示 */}
+                  {dynamicSuggestions.length > 0 && (
+                    <div className="mt-2 mb-3">
+                      <Label className="text-sm text-muted-foreground">动态推荐关键词</Label>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {dynamicSuggestions.map((keyword) => (
+                          <Badge 
+                            key={`dyn-${keyword}`} 
+                            variant="outline" 
+                            className="cursor-pointer bg-muted/50 hover:bg-muted"
+                            onClick={() => {
+                              setSelectedKeywords([...selectedKeywords, keyword]);
+                              setDynamicSuggestions(
+                                dynamicSuggestions.filter(k => k !== keyword)
+                              );
+                            }}
+                          >
+                            {keyword}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* AI 生成关键词按钮和命令编辑 */}
+                  <div className="flex flex-wrap gap-2 mt-3">
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={handleGenerateKeywords}
-                      className="mt-1"
+                      onClick={() => setShowAiCommandEdit(!showAiCommandEdit)}
+                      className="flex items-center gap-1"
                     >
+                      <Brain className="h-4 w-4" />
                       AI生成关键词
                     </Button>
                     
@@ -178,16 +250,43 @@ const Search = () => {
                       variant="outline"
                       size="sm"
                       onClick={toggleAICombinations}
-                      className="mt-1"
                     >
                       {showAICombinations ? "隐藏AI组合生成器" : "显示AI组合生成器"}
                     </Button>
                   </div>
                   
+                  {showAiCommandEdit && (
+                    <div className="mt-2 p-3 border rounded-md bg-muted/20">
+                      <Label htmlFor="ai-command" className="text-sm">AI 命令编辑</Label>
+                      <Input
+                        id="ai-command"
+                        value={aiCommand}
+                        onChange={(e) => setAiCommand(e.target.value)}
+                        className="mt-1 mb-2"
+                        placeholder="输入AI命令"
+                      />
+                      <div className="flex justify-between">
+                        <Select defaultValue="gpt4">
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="选择AI模型" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="gpt4">GPT-4</SelectItem>
+                            <SelectItem value="gpt4o">GPT-4o</SelectItem>
+                            <SelectItem value="claude">Claude</SelectItem>
+                            <SelectItem value="gemini">Gemini</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button size="sm" onClick={handleGenerateKeywords}>生成关键词</Button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 常规推荐关键词 */}
                   <div className="mt-3">
                     <Label className="text-sm text-muted-foreground">推荐关键词</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {suggestedKeywords.map((keyword) => (
+                      {baseSuggestedKeywords.slice(0, 5).map((keyword) => (
                         <Badge 
                           key={keyword} 
                           variant="outline" 
@@ -236,89 +335,184 @@ const Search = () => {
               <CardDescription>选择使用的抓取方法</CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs 
-                defaultValue="api" 
-                className="w-full"
-                onValueChange={(value) => setSelectedMethod(value)}
-              >
-                <TabsList className="grid grid-cols-3 mb-6">
-                  <TabsTrigger value="api">API</TabsTrigger>
-                  <TabsTrigger value="ai">AI工具</TabsTrigger>
-                  <TabsTrigger value="mcp">MCP服务</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="api" className="space-y-4">
-                  <div>
-                    <Label htmlFor="api-source">API来源</Label>
-                    <Select defaultValue="google">
-                      <SelectTrigger id="api-source">
-                        <SelectValue placeholder="选择API来源" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="google">Google Maps API</SelectItem>
-                        <SelectItem value="baidu">百度地图API</SelectItem>
-                        <SelectItem value="bing">Bing搜索API</SelectItem>
-                      </SelectContent>
-                    </Select>
+              <div className="space-y-6">
+                <div>
+                  <Label className="mb-2 block">选择抓取方法（可多选）</Label>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex gap-2">
+                      {[
+                        { id: "api", label: "API" },
+                        { id: "ai", label: "AI工具" },
+                        { id: "mcp", label: "MCP服务" }
+                      ].map(method => (
+                        <Button
+                          key={method.id}
+                          variant={selectedMethods.includes(method.id) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => toggleMethodSelection(method.id)}
+                          className={selectedMethods.includes(method.id) ? "border-primary" : ""}
+                        >
+                          {method.label}
+                        </Button>
+                      ))}
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={handleSelectAllMethods}
+                    >
+                      {selectedMethods.length === 3 ? "取消全选" : "全选"}
+                    </Button>
                   </div>
+                </div>
+
+                <Tabs
+                  value={selectedMethods.length === 1 ? selectedMethods[0] : "multi"}
+                  className="w-full"
+                >
+                  <TabsList className="grid grid-cols-4 mb-6">
+                    <TabsTrigger value="api" disabled={!selectedMethods.includes("api")}>API</TabsTrigger>
+                    <TabsTrigger value="ai" disabled={!selectedMethods.includes("ai")}>AI工具</TabsTrigger>
+                    <TabsTrigger value="mcp" disabled={!selectedMethods.includes("mcp")}>MCP服务</TabsTrigger>
+                    <TabsTrigger value="multi" disabled={selectedMethods.length <= 1}>多模式</TabsTrigger>
+                  </TabsList>
                   
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="api-cache" />
-                    <Label htmlFor="api-cache">启用缓存</Label>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="ai" className="space-y-4">
-                  <div>
-                    <Label htmlFor="ai-tool">AI工具</Label>
-                    <Select defaultValue="n8n">
-                      <SelectTrigger id="ai-tool">
-                        <SelectValue placeholder="选择AI工具" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="n8n">N8N工作流</SelectItem>
-                        <SelectItem value="dify">DIFY工具</SelectItem>
-                        <SelectItem value="custom">自定义AI工具</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <TabsContent value="api" className="space-y-4">
+                    <div>
+                      <Label htmlFor="api-source">API来源</Label>
+                      <Select defaultValue="google">
+                        <SelectTrigger id="api-source">
+                          <SelectValue placeholder="选择API来源" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="google">Google Maps API</SelectItem>
+                          <SelectItem value="baidu">百度地图API</SelectItem>
+                          <SelectItem value="bing">Bing搜索API</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="api-cache" />
+                      <Label htmlFor="api-cache">启用缓存</Label>
+                    </div>
+                  </TabsContent>
                   
-                  <div>
-                    <Label htmlFor="ai-model">AI模型</Label>
-                    <Select defaultValue="gpt4">
-                      <SelectTrigger id="ai-model">
-                        <SelectValue placeholder="选择AI模型" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gpt4">GPT-4</SelectItem>
-                        <SelectItem value="claude">Claude</SelectItem>
-                        <SelectItem value="gemini">Google Gemini</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="mcp" className="space-y-4">
-                  <div>
-                    <Label htmlFor="mcp-protocol">Claude协议</Label>
-                    <Select defaultValue="standard">
-                      <SelectTrigger id="mcp-protocol">
-                        <SelectValue placeholder="选择协议版本" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="standard">标准协议</SelectItem>
-                        <SelectItem value="enhanced">增强协议</SelectItem>
-                        <SelectItem value="custom">自定义协议</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <TabsContent value="ai" className="space-y-4">
+                    <div>
+                      <Label htmlFor="ai-tool">AI工具</Label>
+                      <Select defaultValue="n8n">
+                        <SelectTrigger id="ai-tool">
+                          <SelectValue placeholder="选择AI工具" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="n8n">N8N工作流</SelectItem>
+                          <SelectItem value="dify">DIFY工具</SelectItem>
+                          <SelectItem value="custom">自定义AI工具</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="ai-model">AI模型</Label>
+                      <Select defaultValue="gpt4">
+                        <SelectTrigger id="ai-model">
+                          <SelectValue placeholder="选择AI模型" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gpt4">GPT-4</SelectItem>
+                          <SelectItem value="claude">Claude</SelectItem>
+                          <SelectItem value="gemini">Google Gemini</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <Label htmlFor="ai-prompt">AI提示词</Label>
+                        <Button size="sm" variant="ghost">编辑</Button>
+                      </div>
+                      <Input
+                        id="ai-prompt"
+                        className="font-mono text-sm"
+                        defaultValue="搜索{keyword}在{location}地区的公司信息，包括联系方式和网址"
+                      />
+                    </div>
+                  </TabsContent>
                   
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="mcp-enhanced" />
-                    <Label htmlFor="mcp-enhanced">启用增强功能</Label>
-                  </div>
-                </TabsContent>
-              </Tabs>
+                  <TabsContent value="mcp" className="space-y-4">
+                    <div>
+                      <Label htmlFor="mcp-protocol">Claude协议</Label>
+                      <Select defaultValue="standard">
+                        <SelectTrigger id="mcp-protocol">
+                          <SelectValue placeholder="选择协议版本" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="standard">标准协议</SelectItem>
+                          <SelectItem value="enhanced">增强协议</SelectItem>
+                          <SelectItem value="custom">自定义协议</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <Label htmlFor="mcp-command">MCP命令</Label>
+                        <Button size="sm" variant="ghost">编辑</Button>
+                      </div>
+                      <Input
+                        id="mcp-command"
+                        className="font-mono text-sm"
+                        defaultValue="search companies with {keyword} in {location} with contact details"
+                      />
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="mcp-enhanced" />
+                      <Label htmlFor="mcp-enhanced">启用增强功能</Label>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="multi" className="space-y-4">
+                    <div className="p-3 bg-muted/30 rounded-md">
+                      <h4 className="font-medium mb-2">已选择 {selectedMethods.length} 种搜索方法</h4>
+                      <div className="space-y-2">
+                        {selectedMethods.includes("api") && (
+                          <div className="flex items-center">
+                            <Badge className="bg-blue-100 text-blue-600 mr-2">API</Badge>
+                            <span className="text-sm">Google Maps API</span>
+                          </div>
+                        )}
+                        {selectedMethods.includes("ai") && (
+                          <div className="flex items-center">
+                            <Badge className="bg-green-100 text-green-600 mr-2">AI</Badge>
+                            <span className="text-sm">N8N + GPT-4</span>
+                          </div>
+                        )}
+                        {selectedMethods.includes("mcp") && (
+                          <div className="flex items-center">
+                            <Badge className="bg-purple-100 text-purple-600 mr-2">MCP</Badge>
+                            <span className="text-sm">Claude 标准协议</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3">
+                        同时使用多种方法将合并来自不同来源的结果
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="multi-deduplicate" defaultChecked />
+                      <Label htmlFor="multi-deduplicate">去除重复结果</Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="multi-parallel" defaultChecked />
+                      <Label htmlFor="multi-parallel">并行执行</Label>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
               
               {isSearching && (
                 <div className="mt-6">
