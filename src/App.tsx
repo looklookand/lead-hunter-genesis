@@ -17,6 +17,7 @@ import Settings from "@/pages/Settings";
 import ApiMethod from "@/pages/methods/ApiMethod";
 import AiMethod from "@/pages/methods/AiMethod";
 import McpMethod from "@/pages/methods/McpMethod";
+import ContactDeveloper from "@/pages/ContactDeveloper";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/methods/api" element={<AppLayout><ApiMethod /></AppLayout>} />
           <Route path="/methods/ai" element={<AppLayout><AiMethod /></AppLayout>} />
           <Route path="/methods/mcp" element={<AppLayout><McpMethod /></AppLayout>} />
+          <Route path="/contact" element={<AppLayout><ContactDeveloper /></AppLayout>} />
           
           {/* 404页面 */}
           <Route path="*" element={<NotFound />} />

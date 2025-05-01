@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Table, 
   TableBody, 
@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCheck, Plus, Trash, Brain, Edit } from "lucide-react";
+import { CheckCheck, Plus, Trash, Brain, Edit, Save, RotateCcw } from "lucide-react";
 
 interface Combination {
   id: number;
@@ -27,13 +27,15 @@ interface Combination {
   selected: boolean;
 }
 
-const templateOptions = [
+const defaultTemplateOptions = [
   { id: "default", name: "默认模版", template: "{关键词} {地区}" },
   { id: "customer", name: "客户查询模版", template: "寻找{地区}的{关键词}公司" },
   { id: "supplier", name: "供应商模版", template: "{关键词}供应商 {地区}" },
   { id: "service", name: "服务商模版", template: "{地区} {关键词}服务" },
   { id: "custom", name: "自定义模版", template: "" }
 ];
+
+const defaultAiCommand = "根据提供的关键词和地区，生成最佳的搜索组合，包含查询语句";
 
 const AIGeneratedCombinations = () => {
   const { toast } = useToast();
@@ -45,8 +47,18 @@ const AIGeneratedCombinations = () => {
   const [selectAll, setSelectAll] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showCommandEdit, setShowCommandEdit] = useState(false);
-  const [aiCommand, setAiCommand] = useState("根据提供的关键词和地区，生成最佳的搜索组合，包含查询语句");
+  const [aiCommand, setAiCommand] = useState(defaultAiCommand);
   const [selectedAiModel, setSelectedAiModel] = useState("gpt4");
+  const [templateOptions, setTemplateOptions] = useState(defaultTemplateOptions);
+  const [customAiModels, setCustomAiModels] = useState([
+    { id: "gpt4", name: "GPT-4" },
+    { id: "gpt4o", name: "GPT-4o" },
+    { id: "claude", name: "Claude" },
+    { id: "gemini", name: "Google Gemini" },
+    { id: "custom", name: "自定义模型" }
+  ]);
+  const [newModelName, setNewModelName] = useState("");
+  const [showAddModel, setShowAddModel] = useState(false);
   
   const handleGenerate = () => {
     setIsGenerating(true);
@@ -155,6 +167,79 @@ const AIGeneratedCombinations = () => {
     });
   };
   
+  const handleSaveTemplate = () => {
+    if (selectedTemplate === "custom" && customTemplate) {
+      // 保存自定义模板
+      setTemplateOptions(prev => {
+        const customIndex = prev.findIndex(t => t.id === "custom");
+        const updatedOptions = [...prev];
+        updatedOptions[customIndex] = { ...updatedOptions[customIndex], template: customTemplate };
+        return updatedOptions;
+      });
+      
+      toast({
+        title: "模板已保存",
+        description: "自定义模板已成功保存"
+      });
+    } else if (selectedTemplate !== "custom") {
+      // 更新已有模板
+      const selectedOption = templateOptions.find(t => t.id === selectedTemplate);
+      if (selectedOption) {
+        const updatedTemplate = prompt("请编辑模板内容:", selectedOption.template);
+        
+        if (updatedTemplate !== null && updatedTemplate !== selectedOption.template) {
+          setTemplateOptions(prev => 
+            prev.map(t => 
+              t.id === selectedTemplate ? { ...t, template: updatedTemplate } : t
+            )
+          );
+          
+          toast({
+            title: "模板已更新",
+            description: `${selectedOption.name} 模板已成功更新`
+          });
+        }
+      }
+    }
+  };
+  
+  const handleResetToDefault = () => {
+    setAiCommand(defaultAiCommand);
+    setTemplateOptions(defaultTemplateOptions);
+    
+    toast({
+      title: "已重置为默认命令",
+      description: "AI命令和模板已恢复为默认设置"
+    });
+  };
+  
+  const handleAddCustomModel = () => {
+    if (!newModelName.trim()) {
+      toast({
+        title: "无法添加模型",
+        description: "请输入有效的模型名称",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const newModelId = newModelName.toLowerCase().replace(/\s+/g, "-");
+    
+    setCustomAiModels(prev => [
+      ...prev.filter(m => m.id !== "custom"),
+      { id: newModelId, name: newModelName },
+      { id: "custom", name: "自定义模型" }
+    ]);
+    
+    setNewModelName("");
+    setShowAddModel(false);
+    
+    toast({
+      title: "已添加自定义模型",
+      description: `模型 "${newModelName}" 已成功添加`
+    });
+  };
+  
   return (
     <Card>
       <CardHeader>
@@ -169,15 +254,27 @@ const AIGeneratedCombinations = () => {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <Label>模板选择</Label>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => setShowCommandEdit(!showCommandEdit)}
-                className="flex items-center gap-1"
-              >
-                <Edit className="h-3.5 w-3.5" />
-                {showCommandEdit ? "隐藏AI命令" : "编辑AI命令"}
-              </Button>
+              <div className="space-x-2">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => setShowCommandEdit(!showCommandEdit)}
+                  className="flex items-center gap-1"
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                  {showCommandEdit ? "隐藏AI命令" : "编辑AI命令"}
+                </Button>
+                
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSaveTemplate}
+                  className="flex items-center gap-1"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  保存模板
+                </Button>
+              </div>
             </div>
             
             <Select 
@@ -199,7 +296,16 @@ const AIGeneratedCombinations = () => {
             {showCommandEdit && (
               <div className="p-3 border rounded-md bg-muted/20 mt-2 space-y-3">
                 <div>
-                  <Label htmlFor="ai-model" className="text-sm">AI模型</Label>
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="ai-model" className="text-sm">AI模型</Label>
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => setShowAddModel(!showAddModel)}
+                    >
+                      {showAddModel ? "取消" : "添加自定义模型"}
+                    </Button>
+                  </div>
                   <Select 
                     value={selectedAiModel}
                     onValueChange={setSelectedAiModel}
@@ -208,16 +314,39 @@ const AIGeneratedCombinations = () => {
                       <SelectValue placeholder="选择AI模型" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gpt4">GPT-4</SelectItem>
-                      <SelectItem value="gpt4o">GPT-4o</SelectItem>
-                      <SelectItem value="claude">Claude</SelectItem>
-                      <SelectItem value="gemini">Google Gemini</SelectItem>
+                      {customAiModels.map(model => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 
+                {showAddModel && (
+                  <div className="flex gap-2">
+                    <Input
+                      value={newModelName}
+                      onChange={(e) => setNewModelName(e.target.value)}
+                      placeholder="输入自定义模型名称"
+                    />
+                    <Button size="sm" onClick={handleAddCustomModel}>添加</Button>
+                  </div>
+                )}
+                
                 <div>
-                  <Label htmlFor="ai-generate-command" className="text-sm">生成命令</Label>
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="ai-generate-command" className="text-sm">生成命令</Label>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleResetToDefault}
+                      className="flex items-center gap-1"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      恢复默认
+                    </Button>
+                  </div>
                   <Textarea
                     id="ai-generate-command"
                     value={aiCommand}
