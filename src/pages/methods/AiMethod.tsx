@@ -1,601 +1,84 @@
-
-import React, { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import React from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { CheckCheck, CheckCircle, RotateCcw, Save, Plus } from "lucide-react";
-
-// 默认提示词模版
-const defaultPromptTemplates = [
-  {
-    id: "basic",
-    name: "基础提示词",
-    description: "基本的客户信息抓取提示词",
-    content: "请帮我搜索关于{keyword}的公司，我需要了解它们的联系方式、官网和地址。"
-  },
-  {
-    id: "detailed",
-    name: "详细提示词",
-    description: "包含更多详细要求的提示词",
-    content: "我正在寻找{location}地区的{keyword}相关公司。请提供公司名称、官网、联系电话、联系人、电子邮箱和详细地址。如果可能，也请提供他们的社交媒体账号。"
-  },
-  {
-    id: "custom",
-    name: "自定义提示词",
-    description: "您可以自定义提示词",
-    content: ""
-  }
-];
-
-// 默认AI命令
-const defaultAiCommand = "根据提供的关键词和地区，生成全面的客户信息，包括联系方式和所有可能的社交媒体账号";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 
 const AiMethod = () => {
-  const { toast } = useToast();
-  const [aiModel, setAiModel] = useState<string>("gpt4");
-  const [activeTab, setActiveTab] = useState<string>("settings");
-  
-  // 提示词模版状态
-  const [promptTemplates, setPromptTemplates] = useState(defaultPromptTemplates);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("basic");
-  const [customPrompt, setCustomPrompt] = useState<string>("");
-  const [aiCommand, setAiCommand] = useState<string>(defaultAiCommand);
-  
-  // AI模型状态
-  const [customModels, setCustomModels] = useState([
-    { id: "gpt4", name: "GPT-4", provider: "OpenAI", tokenLimit: 128000 },
-    { id: "gpt4o", name: "GPT-4o", provider: "OpenAI", tokenLimit: 128000 },
-    { id: "claude3", name: "Claude 3 Opus", provider: "Anthropic", tokenLimit: 200000 },
-    { id: "gemini", name: "Gemini Ultra", provider: "Google", tokenLimit: 32000 },
-    { id: "qwen", name: "Qwen Turbo", provider: "Alibaba", tokenLimit: 32000 }
-  ]);
-  const [showAddModel, setShowAddModel] = useState(false);
-  const [newModelName, setNewModelName] = useState("");
-  const [newModelProvider, setNewModelProvider] = useState("");
-  const [newModelTokenLimit, setNewModelTokenLimit] = useState("32000");
-  
-  // AI工具配置
-  const [aiTools] = useState([
-    { id: "n8n", name: "N8N 工作流" },
-    { id: "dify", name: "DIFY 工具" },
-    { id: "alfred", name: "Alfred 机器人" },
-    { id: "custom", name: "自定义工具" }
-  ]);
-  
-  const handleSaveSettings = () => {
-    toast({
-      title: "设置已保存",
-      description: "AI抓取方法设置已更新"
-    });
-  };
-  
-  const handleSavePrompt = () => {
-    if (selectedTemplate === "custom") {
-      setPromptTemplates(prev => {
-        const customIndex = prev.findIndex(t => t.id === "custom");
-        const updatedTemplates = [...prev];
-        updatedTemplates[customIndex] = { ...updatedTemplates[customIndex], content: customPrompt };
-        return updatedTemplates;
-      });
-    } else {
-      const selectedPrompt = promptTemplates.find(t => t.id === selectedTemplate);
-      if (selectedPrompt) {
-        const updatedContent = document.getElementById("prompt-content") as HTMLTextAreaElement;
-        if (updatedContent && updatedContent.value !== selectedPrompt.content) {
-          setPromptTemplates(prev => 
-            prev.map(t => 
-              t.id === selectedTemplate ? { ...t, content: updatedContent.value } : t
-            )
-          );
-        }
-      }
-    }
-    
-    toast({
-      title: "提示词已保存",
-      description: "您的提示词配置已成功保存"
-    });
-  };
-  
-  const handleTestConnection = () => {
-    toast({
-      title: "测试连接成功",
-      description: "已成功连接到AI模型和工具"
-    });
-  };
-  
-  const handlePromptPreview = () => {
-    toast({
-      description: "预览和测试提示词功能将在下一版本推出"
-    });
-  };
-  
-  const handleResetToDefaults = () => {
-    setPromptTemplates(defaultPromptTemplates);
-    setAiCommand(defaultAiCommand);
-    setSelectedTemplate("basic");
-    setCustomPrompt("");
-    
-    toast({
-      title: "已重置为默认设置",
-      description: "AI命令和提示词模板已恢复为默认设置"
-    });
-  };
-  
-  const handleAddCustomModel = () => {
-    if (!newModelName.trim() || !newModelProvider.trim()) {
-      toast({
-        title: "无法添加模型",
-        description: "模型名称和提供商为必填项",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    const newModelId = newModelName.toLowerCase().replace(/\s+/g, "-");
-    const tokenLimit = parseInt(newModelTokenLimit) || 32000;
-    
-    setCustomModels(prev => [
-      ...prev,
-      { 
-        id: newModelId, 
-        name: newModelName, 
-        provider: newModelProvider, 
-        tokenLimit: tokenLimit 
-      }
-    ]);
-    
-    // 重置输入
-    setNewModelName("");
-    setNewModelProvider("");
-    setNewModelTokenLimit("32000");
-    setShowAddModel(false);
-    
-    toast({
-      title: "已添加自定义模型",
-      description: `模型 "${newModelName}" 已成功添加`
-    });
-  };
-
   return (
     <div className="container mx-auto p-6 animate-in">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">AI 抓取方法配置</h1>
-        <p className="text-muted-foreground">配置基于AI模型和工具的客户信息抓取方法</p>
+        <h1 className="text-3xl font-bold mb-2">AI 方法配置</h1>
+        <p className="text-muted-foreground">配置 AI 工具以进行客户信息抓取</p>
       </div>
-      
-      <Tabs 
-        defaultValue="settings"
-        value={activeTab}
-        onValueChange={setActiveTab}
-      >
-        <div className="flex justify-between items-center mb-6">
-          <TabsList>
-            <TabsTrigger value="settings">基本设置</TabsTrigger>
-            <TabsTrigger value="prompt">提示词配置</TabsTrigger>
-            <TabsTrigger value="advanced">高级设置</TabsTrigger>
-          </TabsList>
-          
-          <div className="space-x-2">
-            <Button 
-              variant="outline" 
-              onClick={handleTestConnection}
-            >测试连接</Button>
-            <Button onClick={handleSaveSettings}>保存设置</Button>
-            <Button 
-              variant="ghost" 
-              onClick={handleResetToDefaults}
-              className="flex items-center gap-1"
-            >
-              <RotateCcw className="h-4 w-4" />
-              恢复默认
-            </Button>
-          </div>
-        </div>
-        
-        <TabsContent value="settings">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI 工具设置</CardTitle>
-                <CardDescription>选择并配置用于客户信息抓取的AI工具</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <Label htmlFor="ai-tool">AI工具类型</Label>
-                    <Select defaultValue="n8n">
-                      <SelectTrigger id="ai-tool">
-                        <SelectValue placeholder="选择AI工具" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {aiTools.map(tool => (
-                          <SelectItem key={tool.id} value={tool.id}>{tool.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="api-url">API接口地址</Label>
-                    <Input id="api-url" placeholder="例如: https://n8n.example.com/webhook/..." />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      该地址用于发送抓取请求到您的AI工具
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="api-key">API密钥</Label>
-                    <Input id="api-key" type="password" placeholder="输入API密钥" />
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Switch id="api-auth" defaultChecked />
-                    <Label htmlFor="api-auth">启用API认证</Label>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>AI 模型设置</CardTitle>
-                  <CardDescription>选择用于客户信息抓取的AI模型</CardDescription>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setShowAddModel(!showAddModel)}
-                >
-                  {showAddModel ? "取消" : "添加模型"}
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {showAddModel && (
-                  <div className="p-4 border rounded-lg mb-6 space-y-4">
-                    <h3 className="font-medium mb-2">添加自定义模型</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="new-model-name">模型名称</Label>
-                        <Input 
-                          id="new-model-name" 
-                          value={newModelName}
-                          onChange={(e) => setNewModelName(e.target.value)}
-                          placeholder="例如: GPT-4 Turbo" 
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="new-model-provider">提供商</Label>
-                        <Input 
-                          id="new-model-provider" 
-                          value={newModelProvider}
-                          onChange={(e) => setNewModelProvider(e.target.value)}
-                          placeholder="例如: OpenAI" 
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="new-model-token-limit">字符限制</Label>
-                        <Input 
-                          id="new-model-token-limit" 
-                          type="number"
-                          value={newModelTokenLimit}
-                          onChange={(e) => setNewModelTokenLimit(e.target.value)}
-                          placeholder="例如: 32000" 
-                        />
-                      </div>
-                      <Button
-                        className="w-full"
-                        onClick={handleAddCustomModel}
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        添加模型
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="space-y-6">
-                  <RadioGroup 
-                    defaultValue="gpt4" 
-                    value={aiModel}
-                    onValueChange={setAiModel}
-                    className="space-y-3"
-                  >
-                    {customModels.map(model => (
-                      <div 
-                        key={model.id} 
-                        className="flex items-center justify-between space-x-2 border rounded-lg p-4 hover:bg-muted/50 cursor-pointer"
-                        onClick={() => setAiModel(model.id)}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value={model.id} id={`model-${model.id}`} />
-                          <Label htmlFor={`model-${model.id}`} className="font-medium cursor-pointer">
-                            {model.name}
-                          </Label>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <Badge variant="outline">{model.provider}</Badge>
-                          <span className="text-xs text-muted-foreground mt-1">
-                            {model.tokenLimit.toLocaleString()} 字符限制
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                  
-                  <div>
-                    <Label htmlFor="temperature">温度值</Label>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm">精确</span>
-                      <input 
-                        type="range" 
-                        id="temperature" 
-                        min="0" 
-                        max="20" 
-                        defaultValue="7" 
-                        className="flex-1"
-                      />
-                      <span className="text-sm">创意</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      较低的数值产生更精确的结果，较高的数值产生更多样化的结果
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="prompt">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>提示词配置</CardTitle>
-                <CardDescription>
-                  自定义AI生成客户信息的提示词，使用{"{keyword}"}和{"{location}"}作为变量占位符
-                </CardDescription>
-              </div>
-              <div className="space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePromptPreview}
-                >
-                  预览效果
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSavePrompt}
-                  className="flex items-center gap-1"
-                >
-                  <Save className="h-4 w-4" />
-                  保存提示词
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div>
-                  <Label htmlFor="prompt-template">选择提示词模板</Label>
-                  <Select 
-                    defaultValue="basic"
-                    value={selectedTemplate}
-                    onValueChange={setSelectedTemplate}
-                  >
-                    <SelectTrigger id="prompt-template">
-                      <SelectValue placeholder="选择提示词模板" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {promptTemplates.map(template => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <Separator />
-                
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <Label htmlFor="prompt-content">提示词内容</Label>
-                    <div className="flex items-center space-x-2">
-                      <Label htmlFor="ai-command" className="text-sm">AI命令修改</Label>
-                      <Switch 
-                        id="ai-command-toggle" 
-                        checked={aiCommand !== defaultAiCommand}
-                        onCheckedChange={(checked) => {
-                          if (!checked) {
-                            setAiCommand(defaultAiCommand);
-                            toast({
-                              title: "已恢复默认AI命令",
-                              description: "AI命令已设置为系统默认值"
-                            });
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
 
-                  <div className="space-y-4">
-                    {aiCommand !== defaultAiCommand && (
-                      <div className="p-4 border rounded-lg bg-muted/10 mb-4">
-                        <Label htmlFor="ai-command" className="block mb-2">AI命令</Label>
-                        <Textarea
-                          id="ai-command"
-                          value={aiCommand}
-                          onChange={(e) => setAiCommand(e.target.value)}
-                          className="font-mono text-sm"
-                          rows={2}
-                        />
-                        <p className="text-xs text-muted-foreground mt-2">
-                          这是发送给AI模型的命令，用于定义如何生成内容
-                        </p>
-                      </div>
-                    )}
-                    
-                    <textarea
-                      id="prompt-content"
-                      rows={8}
-                      className="w-full min-h-[200px] p-4 rounded-md border resize-y"
-                      value={
-                        selectedTemplate === "custom" 
-                          ? customPrompt 
-                          : promptTemplates.find(t => t.id === selectedTemplate)?.content
-                      }
-                      onChange={(e) => {
-                        if (selectedTemplate === "custom") {
-                          setCustomPrompt(e.target.value);
-                        }
-                      }}
-                      disabled={selectedTemplate !== "custom"}
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      提示: 使用{"{keyword}"}插入搜索关键词，使用{"{location}"}插入地区信息，使用{"{fields}"}插入需要抓取的字段
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="mt-4">
-                  <h4 className="font-medium mb-2">提示词变量</h4>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge className="cursor-pointer" onClick={() => {
-                      if (selectedTemplate === "custom") {
-                        setCustomPrompt(customPrompt + "{keyword}");
-                      }
-                    }}>
-                      {"{keyword}"} - 搜索关键词
-                    </Badge>
-                    <Badge className="cursor-pointer" onClick={() => {
-                      if (selectedTemplate === "custom") {
-                        setCustomPrompt(customPrompt + "{location}");
-                      }
-                    }}>
-                      {"{location}"} - 地区信息
-                    </Badge>
-                    <Badge className="cursor-pointer" onClick={() => {
-                      if (selectedTemplate === "custom") {
-                        setCustomPrompt(customPrompt + "{fields}");
-                      }
-                    }}>
-                      {"{fields}"} - 抓取字段
-                    </Badge>
-                    <Badge className="cursor-pointer" onClick={() => {
-                      if (selectedTemplate === "custom") {
-                        setCustomPrompt(customPrompt + "{email}");
-                      }
-                    }}>
-                      {"{email}"} - 电子邮箱
-                    </Badge>
-                    <Badge className="cursor-pointer" onClick={() => {
-                      if (selectedTemplate === "custom") {
-                        setCustomPrompt(customPrompt + "{social}");
-                      }
-                    }}>
-                      {"{social}"} - 社交媒体
-                    </Badge>
-                  </div>
-                </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>AI 工具设置</CardTitle>
+          <CardDescription>配置 AI 工具的参数</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="ai-tool">AI 工具</Label>
+              <Select defaultValue="n8n">
+                <SelectTrigger id="ai-tool">
+                  <SelectValue placeholder="选择 AI 工具" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="n8n">N8N 工作流</SelectItem>
+                  <SelectItem value="dify">DIFY 工具</SelectItem>
+                  <SelectItem value="custom">自定义 AI 工具</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="ai-model">AI 模型</Label>
+              <Select defaultValue="gpt4">
+                <SelectTrigger id="ai-model">
+                  <SelectValue placeholder="选择 AI 模型" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gpt4">GPT-4</SelectItem>
+                  <SelectItem value="claude">Claude</SelectItem>
+                  <SelectItem value="gemini">Google Gemini</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-1">
+                <Label htmlFor="ai-prompt">AI 提示词</Label>
+                <Button size="sm" variant="ghost">编辑</Button>
               </div>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={handleSavePrompt} className="flex items-center gap-1">
-                <Save className="h-4 w-4" />
-                保存提示词配置
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="advanced">
-          <Card>
-            <CardHeader>
-              <CardTitle>高级设置</CardTitle>
-              <CardDescription>配置AI抓取的高级参数</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="max-tokens">最大字符数</Label>
-                    <Input id="max-tokens" type="number" defaultValue={4000} />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      AI响应的最大字符数限制
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="max-results">结果数量限制</Label>
-                    <Input id="max-results" type="number" defaultValue={50} />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      每次搜索返回的最大结果数量
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Switch id="enable-cache" defaultChecked />
-                    <div>
-                      <Label htmlFor="enable-cache">启用结果缓存</Label>
-                      <p className="text-xs text-muted-foreground">
-                        缓存搜索结果以提高后续查询速度
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="retry-count">重试次数</Label>
-                    <Input id="retry-count" type="number" defaultValue={3} />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      失败时自动重试的次数
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="timeout">请求超时（秒）</Label>
-                    <Input id="timeout" type="number" defaultValue={60} />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      AI请求的最大等待时间
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Switch id="enable-log" defaultChecked />
-                    <div>
-                      <Label htmlFor="enable-log">启用详细日志</Label>
-                      <p className="text-xs text-muted-foreground">
-                        记录详细的API调用和响应日志
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={handleSaveSettings}>保存高级设置</Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              <Textarea
+                id="ai-prompt"
+                className="font-mono text-sm"
+                defaultValue="搜索{keyword}在{location}地区的公司信息，包括联系方式和网址"
+              />
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center space-x-2">
+              <Checkbox id="ai-enhanced" />
+              <Label htmlFor="ai-enhanced">启用增强功能</Label>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button>保存设置</Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 };

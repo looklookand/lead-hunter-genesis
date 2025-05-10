@@ -20,83 +20,143 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/sonner";
 
-// 示例数据
-const sampleResults = [
-  {
-    id: 1,
-    company: "科技未来有限公司",
-    website: "future-tech.com",
-    address: "中国北京市海淀区中关村1号",
-    phone: "+86 10 1234 5678",
-    email: "contact@future-tech.com",
-    contact: "张经理",
-    position: "市场总监",
-    wechat: "future-tech",
-    linkedin: "company/future-tech",
-    source: "API"
-  },
-  {
-    id: 2,
-    company: "数据智能科技有限公司",
-    website: "data-smart.cn",
-    address: "中国上海市浦东新区张江高科技园区",
-    phone: "+86 21 8765 4321",
-    email: "info@data-smart.cn",
-    contact: "李总",
-    position: "CEO",
-    wechat: "datasmart-tech",
-    linkedin: "company/data-smart",
-    source: "API"
-  },
-  {
-    id: 3,
-    company: "云创网络科技有限公司",
-    website: "cloud-create.net",
-    address: "中国广州市天河区珠江新城",
-    phone: "+86 20 2345 6789",
-    email: "support@cloud-create.net",
-    contact: "王工",
-    position: "技术总监",
-    wechat: "cloudcreate",
-    twitter: "@cloudcreate",
-    source: "AI"
-  },
-  {
-    id: 4,
-    company: "智慧解决方案有限公司",
-    website: "smart-solutions.org",
-    address: "中国深圳市南山区科技园",
-    phone: "+86 755 3456 7890",
-    email: "contact@smart-solutions.org",
-    contact: "陈经理",
-    position: "销售总监",
-    wechat: "smartsolution",
-    linkedin: "company/smart-solutions",
-    source: "MCP"
-  },
-];
+// Define prop types for the component
+interface Company {
+  name: string;
+  website?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  contact?: string;
+  position?: string;
+  wechat?: string;
+  linkedin?: string;
+  twitter?: string;
+  source?: string;
+}
 
-const SearchResults = () => {
-  const { toast } = useToast();
-  const [processingStatus, setProcessingStatus] = useState({
-    total: 10,
-    processed: 4,
-    progress: 40,
-    status: "processing" // "processing", "completed", "error"
+interface SearchResultsProps {
+  results?: Company[];
+  isProcessing?: boolean;
+  progress?: number;
+}
+
+const SearchResults = ({ 
+  results = [], 
+  isProcessing = false, 
+  progress = 100 
+}: SearchResultsProps) => {
+  const [processingStatus] = useState({
+    total: results.length || 10,
+    processed: results.length || 4,
+    progress: progress,
+    status: isProcessing ? "processing" : "completed"
   });
 
+  // Use the provided results or sample data if none provided
+  const displayResults = results.length > 0 ? results : [
+    {
+      name: "科技未来有限公司",
+      website: "future-tech.com",
+      address: "中国北京市海淀区中关村1号",
+      phone: "+86 10 1234 5678",
+      email: "contact@future-tech.com",
+      contact: "张经理",
+      position: "市场总监",
+      wechat: "future-tech",
+      linkedin: "company/future-tech",
+      source: "API"
+    },
+    {
+      name: "数据智能科技有限公司",
+      website: "data-smart.cn",
+      address: "中国上海市浦东新区张江高科技园区",
+      phone: "+86 21 8765 4321",
+      email: "info@data-smart.cn",
+      contact: "李总",
+      position: "CEO",
+      wechat: "datasmart-tech",
+      linkedin: "company/data-smart",
+      source: "API"
+    },
+    {
+      name: "云创网络科技有限公司",
+      website: "cloud-create.net",
+      address: "中国广州市天河区珠江新城",
+      phone: "+86 20 2345 6789",
+      email: "support@cloud-create.net",
+      contact: "王工",
+      position: "技术总监",
+      wechat: "cloudcreate",
+      twitter: "@cloudcreate",
+      source: "AI"
+    },
+    {
+      name: "智慧解决方案有限公司",
+      website: "smart-solutions.org",
+      address: "中国深圳市南山区科技园",
+      phone: "+86 755 3456 7890",
+      email: "contact@smart-solutions.org",
+      contact: "陈经理",
+      position: "销售总监",
+      wechat: "smartsolution",
+      linkedin: "company/smart-solutions",
+      source: "MCP"
+    },
+  ];
+
   const handleExport = (format: string) => {
-    toast({
-      title: "导出结果",
+    toast.info("导出结果", {
       description: `将搜索结果导出为${format.toUpperCase()}格式`
     });
+    
+    // Simple CSV export implementation
+    if (format === 'csv') {
+      try {
+        // Create CSV header
+        const headers = ["公司名称", "网址", "地址", "电话", "邮箱"];
+        
+        // Create CSV data rows
+        const dataRows = displayResults.map(company => [
+          company.name || '',
+          company.website || '',
+          company.address || '',
+          company.phone || '',
+          company.email || ''
+        ]);
+        
+        // Combine headers and data
+        const csvContent = [
+          headers.join(','),
+          ...dataRows.map(row => row.join(','))
+        ].join('\n');
+        
+        // Create downloadable link
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `company_search_results_${new Date().toISOString().slice(0,10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast.success("导出成功", {
+          description: "CSV文件已下载"
+        });
+      } catch (err) {
+        toast.error("导出失败", {
+          description: "无法导出为CSV格式"
+        });
+      }
+    }
   };
 
   const handleSaveResults = () => {
-    toast({
-      title: "保存成功",
+    toast.success("保存成功", {
       description: "已将搜索结果保存到系统中"
     });
   };
@@ -108,7 +168,7 @@ const SearchResults = () => {
           <div>
             <CardTitle className="text-xl flex items-center">
               <span>搜索结果</span>
-              <Badge className="ml-2">{sampleResults.length} 条结果</Badge>
+              <Badge className="ml-2">{displayResults.length} 条结果</Badge>
             </CardTitle>
             <CardDescription>以下是根据您的搜索条件找到的客户信息</CardDescription>
           </div>
@@ -150,22 +210,26 @@ const SearchResults = () => {
                 </TableHeader>
                 
                 <TableBody>
-                  {sampleResults.map((result) => (
-                    <TableRow key={result.id}>
-                      <TableCell className="font-medium">{result.company}</TableCell>
+                  {displayResults.map((result, index) => (
+                    <TableRow key={`result-${index}`}>
+                      <TableCell className="font-medium">{result.name}</TableCell>
                       <TableCell>
-                        <a href={`https://${result.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                          {result.website}
-                        </a>
+                        {result.website && (
+                          <a href={`https://${result.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                            {result.website}
+                          </a>
+                        )}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">{result.address}</TableCell>
-                      <TableCell>{result.contact}</TableCell>
-                      <TableCell className="hidden md:table-cell">{result.position}</TableCell>
-                      <TableCell>{result.phone}</TableCell>
+                      <TableCell>{result.contact || '-'}</TableCell>
+                      <TableCell className="hidden md:table-cell">{result.position || '-'}</TableCell>
+                      <TableCell>{result.phone || '-'}</TableCell>
                       <TableCell className="hidden md:table-cell">
-                        <a href={`mailto:${result.email}`} className="text-primary hover:underline">
-                          {result.email}
-                        </a>
+                        {result.email && (
+                          <a href={`mailto:${result.email}`} className="text-primary hover:underline">
+                            {result.email}
+                          </a>
+                        )}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <div className="flex space-x-1">
@@ -183,7 +247,7 @@ const SearchResults = () => {
                             "bg-purple-50 text-purple-600 border-purple-200"
                           }
                         >
-                          {result.source}
+                          {result.source || 'API'}
                         </Badge>
                       </TableCell>
                     </TableRow>
@@ -195,11 +259,11 @@ const SearchResults = () => {
           
           <TabsContent value="card">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sampleResults.map((result) => (
-                <Card key={result.id}>
+              {displayResults.map((result, index) => (
+                <Card key={`card-${index}`}>
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{result.company}</CardTitle>
+                      <CardTitle className="text-lg">{result.name}</CardTitle>
                       <Badge 
                         variant="outline" 
                         className={
@@ -208,36 +272,41 @@ const SearchResults = () => {
                           "bg-purple-50 text-purple-600 border-purple-200"
                         }
                       >
-                        {result.source}
+                        {result.source || 'API'}
                       </Badge>
                     </div>
                     <CardDescription>
-                      <a href={`https://${result.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                        {result.website}
-                      </a>
+                      {result.website && (
+                        <a href={`https://${result.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                          {result.website}
+                        </a>
+                      )}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-2 pt-0">
                     <div className="text-sm">
-                      <span className="font-medium">地址:</span> {result.address}
+                      <span className="font-medium">地址:</span> {result.address || '未知'}
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">联系人:</span> {result.contact} ({result.position})
+                      <span className="font-medium">联系人:</span> {result.contact ? `${result.contact} (${result.position || '未知'})` : '未知'}
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">电话:</span> {result.phone}
+                      <span className="font-medium">电话:</span> {result.phone || '未知'}
                     </div>
                     <div className="text-sm">
                       <span className="font-medium">邮箱:</span>{" "}
-                      <a href={`mailto:${result.email}`} className="text-primary hover:underline">
-                        {result.email}
-                      </a>
+                      {result.email ? (
+                        <a href={`mailto:${result.email}`} className="text-primary hover:underline">
+                          {result.email}
+                        </a>
+                      ) : '未知'}
                     </div>
                     <div className="text-sm flex gap-1 flex-wrap">
                       <span className="font-medium">社交:</span>
                       {result.wechat && <Badge variant="outline" className="text-xs">微信: {result.wechat}</Badge>}
                       {result.linkedin && <Badge variant="outline" className="text-xs">LinkedIn</Badge>}
                       {result.twitter && <Badge variant="outline" className="text-xs">Twitter</Badge>}
+                      {!result.wechat && !result.linkedin && !result.twitter && <span className="text-muted-foreground">未知</span>}
                     </div>
                   </CardContent>
                 </Card>

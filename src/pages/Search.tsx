@@ -21,15 +21,18 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { toast } from "@/components/ui/sonner";
 import SearchResults from "@/components/search/SearchResults";
 import FieldsSelector from "@/components/search/FieldsSelector";
 import AIGeneratedCombinations from "@/components/search/AIGeneratedCombinations";
 import LocationSelector from "@/components/search/LocationSelector";
 import { useToast } from "@/hooks/use-toast";
 import { Check, CheckCheck, ChevronRight, Search as SearchIcon, Brain } from "lucide-react";
+import { CompanySearchService } from "@/services/CompanySearchService";
+import { supabase } from "@/integrations/supabase/client";
 
 const Search = () => {
-  const { toast } = useToast();
+  const { toast: hookToast } = useToast();
   const [keywords, setKeywords] = useState<string>("");
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [selectedMethods, setSelectedMethods] = useState<string[]>(["api"]);
@@ -40,18 +43,33 @@ const Search = () => {
   const [dynamicSuggestions, setDynamicSuggestions] = useState<string[]>([]);
   const [aiCommand, setAiCommand] = useState<string>("generate keywords related to {input} for business search");
   const [showAiCommandEdit, setShowAiCommandEdit] = useState<boolean>(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<string>("");
   
-  // 基础建议的关键词
+  // Base suggested keywords
   const baseSuggestedKeywords = ["软件开发", "数据分析", "市场营销", "电子商务", "咨询服务", "人工智能", "云服务", "大数据", "区块链", "物联网"];
   
-  // 监听输入变化生成动态建议
+  // Listen for location changes from the LocationSelector component
+  useEffect(() => {
+    const handleLocationChange = (e: CustomEvent) => {
+      setSelectedLocation(e.detail?.location || "");
+    };
+    
+    window.addEventListener('locationSelected', handleLocationChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('locationSelected', handleLocationChange as EventListener);
+    };
+  }, []);
+  
+  // Monitor input changes to generate dynamic suggestions
   useEffect(() => {
     if (keywords.length > 0) {
-      // 过滤出与当前输入匹配的关键词
+      // Filter keywords that match the current input and are not already selected
       const filtered = baseSuggestedKeywords.filter(
         keyword => keyword.includes(keywords) && !selectedKeywords.includes(keyword)
       );
-      // 从过滤结果中随机选择3-5个作为建议
+      // Randomly select 3-5 keywords as suggestions
       const count = Math.min(Math.floor(Math.random() * 3) + 3, filtered.length);
       const suggestions = filtered.slice(0, count);
       setDynamicSuggestions(suggestions);
@@ -72,38 +90,32 @@ const Search = () => {
   };
   
   const handleGenerateKeywords = () => {
-    toast({
-      title: "AI正在生成关键词",
+    toast.info("AI正在生成关键词", {
       description: "请稍等，正在基于您的搜索内容生成相关关键词"
     });
     
-    // 模拟生成关键词
+    // Simulate generating keywords
     setTimeout(() => {
       const newKeywords = ["企业服务", "客户管理", "数据服务", "云计算解决方案", "SaaS平台"];
       setSelectedKeywords([...selectedKeywords, ...newKeywords]);
       
-      toast({
-        title: "关键词生成完成",
+      toast.success("关键词生成完成", {
         description: `已生成 ${newKeywords.length} 个相关关键词`
       });
     }, 1500);
   };
   
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (selectedKeywords.length === 0) {
-      toast({
-        title: "无法开始搜索",
-        description: "请至少添加一个关键词",
-        variant: "destructive"
+      toast.error("无法开始搜索", {
+        description: "请至少添加一个关键词"
       });
       return;
     }
     
     if (selectedMethods.length === 0) {
-      toast({
-        title: "无法开始搜索",
-        description: "请至少选择一种抓取方法",
-        variant: "destructive"
+      toast.error("无法开始搜索", {
+        description: "请至少选择一种抓取方法"
       });
       return;
     }
@@ -111,35 +123,56 @@ const Search = () => {
     setIsSearching(true);
     setProgress(0);
     
-    toast({
-      title: "正在搜索",
+    toast.info("正在搜索", {
       description: `使用 ${selectedMethods.map(m => m.toUpperCase()).join(", ")} 方法开始抓取客户信息`
     });
     
-    // 模拟搜索过程和进度
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsSearching(false);
-          setShowResults(true);
-          toast({
-            title: "搜索完成",
-            description: "已抓取到客户信息，请查看结果",
-          });
-          return 100;
-        }
-        return prev + 10;
+    try {
+      // Progress simulation
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          const newProgress = prev + 10;
+          if (newProgress >= 100) {
+            clearInterval(progressInterval);
+            return 100;
+          }
+          return newProgress;
+        });
+      }, 500);
+      
+      // Actual API call using our service
+      const results = await CompanySearchService.searchCompanies({
+        keywords: selectedKeywords,
+        location: selectedLocation
       });
-    }, 500);
+      
+      // Once search completes, set results and show them
+      setTimeout(() => {
+        clearInterval(progressInterval);
+        setProgress(100);
+        setSearchResults(results);
+        setIsSearching(false);
+        setShowResults(true);
+        
+        toast.success("搜索完成", {
+          description: `已抓取到 ${results.length} 条客户信息，请查看结果`
+        });
+      }, 2000);
+      
+    } catch (error) {
+      console.error("Search error:", error);
+      toast.error("搜索出错", {
+        description: error instanceof Error ? error.message : "无法完成搜索，请重试"
+      });
+      setIsSearching(false);
+    }
   };
   
   const toggleAICombinations = () => {
     setShowAICombinations(!showAICombinations);
     
     if (!showAICombinations) {
-      toast({
-        title: "AI组合生成器已启用",
+      toast.info("AI组合生成器已启用", {
         description: "您可以使用AI自动生成关键词与地区的所有组合"
       });
     }
@@ -157,7 +190,7 @@ const Search = () => {
   
   const handleSelectAllMethods = () => {
     if (selectedMethods.length === 3) {
-      setSelectedMethods(["api"]); // 至少保留一个方法
+      setSelectedMethods(["api"]); // At least keep one method
     } else {
       setSelectedMethods(["api", "ai", "mcp"]);
     }
@@ -188,6 +221,11 @@ const Search = () => {
                       value={keywords}
                       onChange={(e) => setKeywords(e.target.value)}
                       className="flex-1 mr-2"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAddKeyword();
+                        }
+                      }}
                     />
                     <Button onClick={handleAddKeyword}>添加</Button>
                   </div>
@@ -210,7 +248,7 @@ const Search = () => {
                     ))}
                   </div>
                   
-                  {/* 动态推荐关键词 - 只在输入时显示 */}
+                  {/* Dynamic recommended keywords - only show when typing */}
                   {dynamicSuggestions.length > 0 && (
                     <div className="mt-2 mb-3">
                       <Label className="text-sm text-muted-foreground">动态推荐关键词</Label>
@@ -234,7 +272,7 @@ const Search = () => {
                     </div>
                   )}
                   
-                  {/* AI 生成关键词按钮和命令编辑 */}
+                  {/* AI generate keywords button and command editing */}
                   <div className="flex flex-wrap gap-2 mt-3">
                     <Button 
                       variant="outline" 
@@ -282,7 +320,7 @@ const Search = () => {
                     </div>
                   )}
                   
-                  {/* 常规推荐关键词 */}
+                  {/* Regular recommended keywords */}
                   <div className="mt-3">
                     <Label className="text-sm text-muted-foreground">推荐关键词</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
@@ -544,7 +582,7 @@ const Search = () => {
         </div>
       </div>
       
-      {showResults && <SearchResults />}
+      {showResults && <SearchResults results={searchResults} />}
     </div>
   );
 };
